@@ -68,7 +68,7 @@ class Decoder(nn.Module):
         self.drop = nn.Dropout(dropout)
         
         if self.attention:
-            self.lin_atten = nn.Linear(emb_size+encoder_hidden_size,output_size)
+            self.lin_atten = nn.Linear(emb_size+encoder_hidden_size,decoder_hidden_size)
         
         #############################################################################
         #                              END OF YOUR CODE                             #
@@ -105,7 +105,7 @@ class Decoder(nn.Module):
         cos_similarity = nn.functional.cosine_similarity(hidden, encoder_outputs, dim=-1)
 
         # Softmax and reshaping to get attention output
-        attention_prob = nn.functional.softmax(cos_similarity)
+        attention_prob = nn.functional.softmax(cos_similarity,dim=1)
         attention_prob = attention_prob.unsqueeze(1)
         
         
@@ -150,22 +150,32 @@ class Decoder(nn.Module):
         embedded = self.drop(self.embed(input))
         
         # If we use attention:
-        if attention == True:
+        if self.attention:
             # Calculate attention
-            attention_weights = self.attention(hidden, encoder_outputs)
+            if self.model_type == "RNN":
+                attention_weights = self.compute_attention(hidden, encoder_outputs)
+            else:
+                attention_weights = self.compute_attention(hidden[0], encoder_outputs)
             
             # Weighted sum of attention and encoder outputs
             context = torch.bmm(attention_weights, encoder_outputs)
             
             # Concatenate the input and the attention output
-            embedded = torch.cat(embedded, context, dim=1)
+            embedded = torch.cat((embedded, context),dim=-1)
         
             embedded = self.lin_atten(embedded)
+        
+        if self.model_type == "LSTM" and not isinstance(hidden, tuple):
+            cell_state = torch.zeros_like(hidden)
+            hidden = (hidden, cell_state)
+            
+        if self.model_type == "RNN" and isinstance(hidden, tuple):
+            hidden = hidden[0]
         
         if self.model_type == "RNN":
             output, hidden = self.recurrent(embedded, hidden)
         else:
-            output, (hidden, cell) = self.recurrent(embedded, hidden)
+            output, hidden = self.recurrent(embedded, hidden)
             
         output = self.logsoft(self.lin(output.squeeze(1)))
 

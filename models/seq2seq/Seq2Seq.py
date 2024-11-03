@@ -45,6 +45,9 @@ class Seq2Seq(nn.Module):
         #    more than 2 lines of code.                                             #
         #############################################################################
 
+        self.encoder = encoder.to(device)
+        self.decoder = decoder.to(device)
+
         #############################################################################
         #                              END OF YOUR CODE                             #
         #############################################################################
@@ -74,8 +77,21 @@ class Seq2Seq(nn.Module):
         #          input at the next time step.                                     #
         #############################################################################
 
-        outputs = None      #remove this line when you start implementing your code
-        # initially set outputs as a tensor of zeros with dimensions (batch_size, seq_len, decoder_output_size)
+        enc_out, enc_hidden = self.encoder(source)
+        
+        outputs = torch.zeros(batch_size, seq_len, self.decoder.output_size)
+        
+        dec_input = source[:,0].unsqueeze(1)
+        dec_hidden = enc_hidden
+        
+        for word in range(seq_len):
+            
+            dec_out, dec_hidden = self.decoder(dec_input,dec_hidden,enc_out)
+            outputs[:,word,:] = dec_out
+            
+            # dec_hidden = (dec_hidden[0]).unsqueeze(0)
+            dec_input = dec_out.argmax(1).unsqueeze(1)
+
 
         #############################################################################
         #                              END OF YOUR CODE                             #
