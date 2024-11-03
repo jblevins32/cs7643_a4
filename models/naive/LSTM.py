@@ -56,14 +56,38 @@ class LSTM(nn.Module):
         #   should NOT transpose the weights.                                          #
         #   You also need to include correct activation functions                      #
         ################################################################################
+        
+        # i_t: input gate (second in ipynb image)
+        self.W_ii = nn.Parameter(torch.randn(input_size, hidden_size))
+        self.b_ii = nn.Parameter(torch.randn(hidden_size))
+        self.W_hi = nn.Parameter(torch.randn(hidden_size,hidden_size))
+        self.b_hi = nn.Parameter(torch.randn(hidden_size))
+                        
+        # f_t: the forget gate (first in ipynb image)
+        self.W_if = nn.Parameter(torch.randn(input_size, hidden_size))
+        self.b_if = nn.Parameter(torch.randn(hidden_size))
+        self.W_hf = nn.Parameter(torch.randn(hidden_size,hidden_size))
+        self.b_hf = nn.Parameter(torch.randn(hidden_size))
+        
+        # g_t: the cell gate (third in ipynb image)
+        self.W_ig = nn.Parameter(torch.randn(input_size, hidden_size))
+        self.b_ig = nn.Parameter(torch.randn(hidden_size))
+        self.W_hg = nn.Parameter(torch.randn(hidden_size,hidden_size))
+        self.b_hg = nn.Parameter(torch.randn(hidden_size))
 
-        # i_t: input gate
-
-        # f_t: the forget gate
-
-        # g_t: the cell gate
-
-        # o_t: the output gate
+        # o_t: the output gate (fourth in ipynb image)
+        self.W_io = nn.Parameter(torch.randn(input_size, hidden_size))
+        self.b_io = nn.Parameter(torch.randn(hidden_size))
+        self.W_ho = nn.Parameter(torch.randn(hidden_size,hidden_size))
+        self.b_ho = nn.Parameter(torch.randn(hidden_size))
+        
+        # Activation functions
+        self.tanh = nn.Tanh()
+        self.sigm = nn.Sigmoid()
+        
+        # Initial outputs
+        self.h_tm = torch.zeros(hidden_size,hidden_size)
+        self.c_tm = torch.zeros(hidden_size,hidden_size)
 
         ################################################################################
         #                              END OF YOUR CODE                                #
@@ -88,7 +112,27 @@ class LSTM(nn.Module):
         #   h_t and c_t should be initialized to zeros.                                #
         #   Note that this time you are also iterating over all of the time steps.     #
         ################################################################################
-        h_t, c_t = None, None  #remove this line when you start implementing your code
+        
+        # Get number of data to run the loop on
+        _, sequence, _ = x.shape
+        
+        # Iterate over the sequences, feeding back LTM and STM as I go
+        for iter in range(sequence):
+        
+            data = x[:,iter,:]
+            
+            i_t = self.sigm(data @ self.W_ii + self.b_ii + self.h_tm @ self.W_hi + self.b_hi)
+            f_t = self.sigm(data @ self.W_if + self.b_if + self.h_tm @ self.W_hf + self.b_hf)
+            g_t = self.tanh(data @ self.W_ig + self.b_ig + self.h_tm @ self.W_hg + self.b_hg)
+            o_t = self.sigm(data @ self.W_io + self.b_io + self.h_tm @ self.W_ho + self.b_ho)
+
+            c_t = f_t * self.c_tm + i_t * g_t
+            h_t = o_t * self.tanh(c_t)
+
+            # Assign new LTSM as former LTSM
+            self.h_tm = h_t
+            self.c_tm = c_t
+        
         ################################################################################
         #                              END OF YOUR CODE                                #
         ################################################################################

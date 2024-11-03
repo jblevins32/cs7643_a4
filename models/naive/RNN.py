@@ -54,11 +54,15 @@ class VanillaRNN(nn.Module):
         #    hidden unit needs to be initialized before the output unit to pass GS  #
         #    You MUST NOT use Pytorch RNN layers(nn.RNN, nn.LSTM, etc).             #
         #############################################################################
+        
+        # initialize hidden and output linear layers
+        self.hidden_layer = nn.Linear(input_size+hidden_size,hidden_size)
+        self.output_layer = nn.Linear(input_size+hidden_size,output_size)
 
-        # initialize block that creates hidden
-
-        # initialize block that creates output
-
+        # initialize activation functions
+        self.tanh = nn.Tanh()
+        self.log_softmax = nn.LogSoftmax(dim=1)
+                
         #############################################################################
         #                              END OF YOUR CODE                             #
         #############################################################################
@@ -81,8 +85,16 @@ class VanillaRNN(nn.Module):
         #   going over one time step. Please refer to the structure in the notebook.#                                              #
         #############################################################################
 
-        output, hidden = None, None  #remove this line when you start implementing your code
+        # Combine the data 
+        combined_data = torch.cat((input,hidden), dim=1)  
+        
+        # Output of hidden layer which will one day be fed back as input to itself
+        hidden_new = self.tanh(self.hidden_layer(combined_data))
+        
+        # Here, we are only getting the output so we do not use the new hidden data to determine the output
+        output = self.log_softmax(self.output_layer(combined_data))
+        
         #############################################################################
         #                              END OF YOUR CODE                             #
         #############################################################################
-        return output, hidden
+        return output, hidden_new

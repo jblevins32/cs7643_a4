@@ -56,6 +56,20 @@ class Decoder(nn.Module):
         # NOTE: Use nn.RNN and nn.LSTM instead of the naive implementation          #
         #############################################################################
 
+        self.embed = nn.Embedding(num_embeddings=output_size, embedding_dim=emb_size)
+        
+        if self.model_type == "RNN":
+            self.recurrent = nn.RNN(input_size=emb_size, hidden_size = decoder_hidden_size,batch_first=True)
+        else:
+            self.recurrent = nn.LSTM(input_size=emb_size, hidden_size = decoder_hidden_size,batch_first=True)
+            
+        self.lin = nn.Linear(decoder_hidden_size,output_size)
+        self.logsoft = nn.LogSoftmax(dim=-1)
+        self.drop = nn.Dropout(dropout)
+        
+        if self.attention:
+            self.lin_atten = nn.Linear(emb_size+encoder_hidden_size,output_size)
+        
         #############################################################################
         #                              END OF YOUR CODE                             #
         #############################################################################
@@ -84,7 +98,17 @@ class Decoder(nn.Module):
         # some other similar function for your implementation.                      #
         #############################################################################
 
-        attention_prob = None   #remove this line when you start implementing your code
+        hidden = hidden.squeeze(0) # Remove first dimension from the tensor if it is length 1
+        hidden = hidden.unsqueeze(1) # Add a dimension in the second dimension as length 1
+        
+        # Find similarity between the encoder and decoder (controller) outputs
+        cos_similarity = nn.functional.cosine_similarity(hidden, encoder_outputs, dim=-1)
+
+        # Softmax and reshaping to get attention output
+        attention_prob = nn.functional.softmax(cos_similarity)
+        attention_prob = attention_prob.unsqueeze(1)
+        
+        
         #############################################################################
         #                              END OF YOUR CODE                             #
         #############################################################################
@@ -123,7 +147,27 @@ class Decoder(nn.Module):
         #       containing both the hidden state and the cell state of the LSTM.    #
         #############################################################################
 
-        output, hidden = None, None     #remove this line when you start implementing your code
+        embedded = self.drop(self.embed(input))
+        
+        # If we use attention:
+        if attention == True:
+            # Calculate attention
+            attention_weights = self.attention(hidden, encoder_outputs)
+            
+            # Weighted sum of attention and encoder outputs
+            context = torch.bmm(attention_weights, encoder_outputs)
+            
+            # Concatenate the input and the attention output
+            embedded = torch.cat(embedded, context, dim=1)
+        
+            embedded = self.lin_atten(embedded)
+        
+        if self.model_type == "RNN":
+            output, hidden = self.recurrent(embedded, hidden)
+        else:
+            output, (hidden, cell) = self.recurrent(embedded, hidden)
+            
+        output = self.logsoft(self.lin(output.squeeze(1)))
 
         #############################################################################
         #                              END OF YOUR CODE                             #

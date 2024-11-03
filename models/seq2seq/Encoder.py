@@ -58,6 +58,21 @@ class Encoder(nn.Module):
         # NOTE: Use nn.RNN and nn.LSTM instead of the naive implementation          #
         #############################################################################
 
+        self.embed = nn.Embedding(num_embeddings=input_size, embedding_dim=emb_size)
+        
+        if self.model_type == "RNN":
+            self.recurrent = nn.RNN(input_size=emb_size, hidden_size = encoder_hidden_size,batch_first=True)
+        else:
+            self.recurrent = nn.LSTM(input_size=emb_size, hidden_size = encoder_hidden_size,batch_first=True)
+            
+        self.lin1 = nn.Linear(in_features=encoder_hidden_size, out_features=encoder_hidden_size)
+        self.relu = nn.ReLU()
+        self.lin2 = nn.Linear(in_features=encoder_hidden_size, out_features=decoder_hidden_size)
+        self.tanh = nn.Tanh()
+        
+        self.drop = nn.Dropout(dropout)
+
+
         #############################################################################
         #                              END OF YOUR CODE                             #
         #############################################################################
@@ -86,7 +101,16 @@ class Encoder(nn.Module):
         #       containing both the hidden state and the cell state of the LSTM.    #
         #############################################################################
 
-        output, hidden = None, None     #remove this line when you start implementing your code
+        embedded = self.drop(self.embed(input))
+        
+        if self.model_type == "RNN":
+            output, hidden = self.recurrent(embedded)
+            hidden = self.tanh(self.lin2(self.relu(self.lin1(hidden))))
+            
+        elif self.model_type == "LSTM":
+            output, (hidden, cell) = self.recurrent(embedded)
+            hidden = self.tanh(self.lin2(self.relu(self.lin1(hidden))))
+            hidden = (hidden, cell)
 
         #############################################################################
         #                              END OF YOUR CODE                             #
